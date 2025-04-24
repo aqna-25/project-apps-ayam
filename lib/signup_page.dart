@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:projectayam/services/auth_service.dart';
 import 'complete_profile_page.dart';
+import 'home.dart'; 
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -12,27 +14,113 @@ class _SignUpPageState extends State<SignUpPage> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
-      TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController();
 
   bool hidePassword = true;
   bool hideConfirmPassword = true;
+  bool isLoading = false;
 
-  void handleSignUp() {
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  // Cek apakah user sudah login
+  void _checkLoginStatus() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    if (isLoggedIn) {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    }
+  }
+
+  void handleSignUp() async {
     // Validasi basic
-    if (passwordController.text != confirmPasswordController.text) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Kata sandi tidak cocok")));
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Semua kolom harus diisi")),
+      );
       return;
     }
 
-    // Di sini bisa tambahkan Firebase Auth register
-    // Setelah berhasil register → lanjut ke halaman profil
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CompleteProfilePage()),
-    );
+    if (passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Kata sandi tidak cocok")),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final result = await AuthService.register(
+        nameController.text,
+        emailController.text,
+        passwordController.text,
+        confirmPasswordController.text,
+      );
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Registrasi berhasil")),
+          );
+
+          // Cek token dan redirect ke halaman yang sesuai
+          final isLoggedIn = await AuthService.isLoggedIn();
+          if (isLoggedIn) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomePage()),
+            );
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CompleteProfilePage()),
+            );
+          }
+        }
+      } else {
+        if (mounted) {
+          String errorMessage = result['message'];
+          
+          // Menampilkan error validasi jika ada
+          if (result['errors'] != null) {
+            final errors = result['errors'] as Map<String, dynamic>;
+            errorMessage = '';
+            errors.forEach((key, value) {
+              if (value is List) {
+                for (var error in value) {
+                  errorMessage += '• $error\n';
+                }
+              }
+            });
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Terjadi kesalahan: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -64,6 +152,7 @@ class _SignUpPageState extends State<SignUpPage> {
             ),
             TextField(
               controller: emailController,
+              keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(labelText: 'Email'),
             ),
             TextField(
@@ -90,10 +179,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         ? Icons.visibility_off
                         : Icons.visibility,
                   ),
-                  onPressed:
-                      () => setState(
-                        () => hideConfirmPassword = !hideConfirmPassword,
-                      ),
+                  onPressed: () => setState(
+                    () => hideConfirmPassword = !hideConfirmPassword,
+                  ),
                 ),
               ),
             ),
@@ -102,8 +190,17 @@ class _SignUpPageState extends State<SignUpPage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8EA458),
               ),
-              onPressed: handleSignUp,
-              child: const Text("Simpan"),
+              onPressed: isLoading ? null : handleSignUp,
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text("Simpan"),
             ),
           ],
         ),

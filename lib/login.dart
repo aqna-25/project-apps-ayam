@@ -1,40 +1,105 @@
 import 'package:flutter/material.dart';
-import 'package:projectayam/home.dart';
+import 'package:projectayam/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'home.dart';
+import 'signup_page.dart'; 
 
-class Login extends StatefulWidget {
-  const Login({super.key});
+class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
 
   @override
-  State<Login> createState() => _LoginState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginState extends State<Login> {
+class _LoginPageState extends State<LoginPage> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool isPasswordVisible = false;
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  // Cek apakah user sudah login
+  void _checkLoginStatus() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    if (isLoggedIn && mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    }
+  }
 
   void handleLogin() async {
     String email = emailController.text;
     String password = passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Silakan isi semua kolom")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Silakan isi semua kolom")),
+      );
       return;
     }
 
-    // Simpan session login pakai SharedPreferences
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isLogin', true);
-    await prefs.setString('email', email);
+    setState(() {
+      isLoading = true;
+    });
 
-    // Navigasi ke halaman Home
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
+    try {
+      // Panggil API login
+      final result = await AuthService.login(email, password);
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Login berhasil")),
+          );
+
+          // Navigasi ke halaman Home
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomePage()),
+          );
+        }
+      } else {
+        if (mounted) {
+          String errorMessage = result['message'];
+          
+          // Tampilkan error spesifik jika ada
+          if (result['errors'] != null) {
+            final errors = result['errors'] as Map<String, dynamic>;
+            errorMessage = '';
+            errors.forEach((key, value) {
+              if (value is List) {
+                for (var error in value) {
+                  errorMessage += '• $error\n';
+                }
+              }
+            });
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Terjadi kesalahan: $e")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -60,6 +125,7 @@ class _LoginState extends State<Login> {
               const SizedBox(height: 8),
               TextField(
                 controller: emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.grey.shade300,
@@ -106,17 +172,28 @@ class _LoginState extends State<Login> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: handleLogin,
-                  child: const Text(
-                    "LOGIN",
-                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
-                  ),
+                  onPressed: isLoading ? null : handleLogin,
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "LOGIN",
+                          style: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
+                        ),
                 ),
               ),
               const SizedBox(height: 8),
               Center(
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    // Navigate to forgot password page
+                  },
                   child: const Text(
                     "Forget Password?",
                     style: TextStyle(color: Colors.grey),
