@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:projectayam/login.dart';
-import 'package:projectayam/signup_page.dart';
+import 'login.dart';
+import 'signup_page.dart';
 import 'dart:ui';
 
 class TopCurveClipper extends CustomClipper<Path> {
@@ -118,7 +118,9 @@ class LoginPage extends StatelessWidget {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => LoginPage()),
+                            MaterialPageRoute(
+                              builder: (context) => const LoginAuth(),
+                            ),
                           );
                         },
                         style: ElevatedButton.styleFrom(

@@ -1,20 +1,8 @@
-<<<<<<< HEAD
-# projectayam
+# Aplikasi Ayamku
 
-A new Flutter project.
+Aplikasi ayamku with a flutter framework for android and ios and laravel for backend. This application is to fulfill the assignment requirements for mobile programming courses.
 
-## Getting Started
+# Instalation
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-=======
-# apps-ayam
->>>>>>> 525825e34b5c3cb82632f60503f9739f53617df9
+-- flutter pub get
+-- flutter run

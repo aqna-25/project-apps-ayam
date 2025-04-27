@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'kandang.dart';
 import 'loginpage.dart';
@@ -10,11 +11,54 @@ class Profil extends StatelessWidget {
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => page));
   }
 
-  void _logout(BuildContext context) {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+  // Fungsi logout yang menghapus session
+  Future<void> _logout(BuildContext context) async {
+    // Tampilkan indikator loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF82985E)),
+          ),
+        );
+      },
     );
+
+    try {
+      // Dapatkan instance SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+
+      // Hapus status login
+      await prefs.setBool('isLogin', false);
+
+      // Hapus timestamp login
+      await prefs.remove('loginTimestamp');
+
+      // Opsional: Hapus data user lainnya jika ada
+      // await prefs.remove('userEmail');
+      // await prefs.remove('userName');
+
+      // Tutup dialog loading
+      Navigator.pop(context);
+
+      // Arahkan ke halaman login
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+    } catch (e) {
+      // Tutup dialog loading
+      Navigator.pop(context);
+
+      // Tampilkan pesan error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Terjadi kesalahan saat logout: ${e.toString()}'),
+        ),
+      );
+    }
   }
 
   @override

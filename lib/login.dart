@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:projectayam/services/auth_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
-import 'signup_page.dart'; 
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class LoginAuth extends StatefulWidget {
+  const LoginAuth({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<LoginAuth> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginPageState extends State<LoginAuth> {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   bool isPasswordVisible = false;
@@ -35,12 +33,20 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void handleLogin() async {
-    String email = emailController.text;
+    String email = emailController.text.trim();
     String password = passwordController.text;
 
-    if (email.isEmpty || password.isEmpty) {
+    // Validasi email dan password
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Email tidak boleh kosong")));
+      return;
+    }
+
+    if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Silakan isi semua kolom")),
+        const SnackBar(content: Text("Password tidak boleh kosong")),
       );
       return;
     }
@@ -55,9 +61,14 @@ class _LoginPageState extends State<LoginPage> {
 
       if (result['success']) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Login berhasil")),
-          );
+          // Pastikan user_id disimpan ke SharedPreferences di sini atau di AuthService
+          // Contoh:
+          // final prefs = await SharedPreferences.getInstance();
+          // await prefs.setInt('user_id', result['user']['id']);
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Login berhasil")));
 
           // Navigasi ke halaman Home
           Navigator.pushReplacement(
@@ -67,8 +78,8 @@ class _LoginPageState extends State<LoginPage> {
         }
       } else {
         if (mounted) {
-          String errorMessage = result['message'];
-          
+          String errorMessage = result['message'] ?? 'Login gagal';
+
           // Tampilkan error spesifik jika ada
           if (result['errors'] != null) {
             final errors = result['errors'] as Map<String, dynamic>;
@@ -81,17 +92,17 @@ class _LoginPageState extends State<LoginPage> {
               }
             });
           }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
+
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(errorMessage)));
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Terjadi kesalahan: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Terjadi kesalahan: $e")));
       }
     } finally {
       if (mounted) {
@@ -171,21 +182,29 @@ class _LoginPageState extends State<LoginPage> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    // Disable button color when loading
+                    disabledBackgroundColor: Colors.grey.shade400,
                   ),
                   onPressed: isLoading ? null : handleLogin,
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                  child:
+                      isLoading
+                          ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                          : const Text(
+                            "LOGIN",
+                            style: TextStyle(
+                              color:
+                                  Colors
+                                      .white, // Changed to white for better contrast
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        )
-                      : const Text(
-                          "LOGIN",
-                          style: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
-                        ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -214,13 +233,28 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 16),
               Center(
                 child: Column(
-                  children: const [
-                    Text("LOGIN WITH", style: TextStyle(color: Colors.grey)),
-                    SizedBox(height: 12),
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: Colors.transparent,
-                      backgroundImage: AssetImage('Assets/google.png'),
+                  children: [
+                    const Text(
+                      "LOGIN WITH",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: () {
+                        // Implement Google login functionality
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Google login belum diimplementasikan",
+                            ),
+                          ),
+                        );
+                      },
+                      child: const CircleAvatar(
+                        radius: 20,
+                        backgroundColor: Colors.transparent,
+                        backgroundImage: AssetImage('Assets/google.png'),
+                      ),
                     ),
                   ],
                 ),
