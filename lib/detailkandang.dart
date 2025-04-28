@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-
+import 'package:projectayam/pages/detail_doc.dart';
 import 'package:projectayam/pages/detail_panen.dart';
 import 'package:projectayam/pages/detail_rekapitulasi.dart';
 import 'package:projectayam/pages/detail_ringkasan.dart';
 import 'package:projectayam/pages/detail_sapronak.dart';
 
 class DetailKandangPage extends StatefulWidget {
-  final int kandangId;
-
+  final String kandangId; // Mengubah tipe data dari int menjadi String
   const DetailKandangPage({required this.kandangId, Key? key})
     : super(key: key);
 
@@ -22,7 +21,7 @@ class _DetailKandangPageState extends State<DetailKandangPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -57,6 +56,7 @@ class _DetailKandangPageState extends State<DetailKandangPage>
           ),
           tabs: const [
             Tab(text: 'Ringkasan'),
+            Tab(text: 'DOC'),
             Tab(text: 'Sapronak'),
             Tab(text: 'Panen'),
             Tab(text: 'Rekapitulasi'),
@@ -66,10 +66,13 @@ class _DetailKandangPageState extends State<DetailKandangPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          const DetailRingkasan(),
+          DetailRingkasan(kandangId: widget.kandangId),
+          DetailDoc(kandangId: widget.kandangId),
           DetailSapronak(kandangId: widget.kandangId),
-          const DetailPanen(),
-          const DetailRekapitulasi(),
+          DetailPanen(
+            kandangId: widget.kandangId,
+          ), // Kesalahan diperbaiki di sini
+          DetailRekapitulasi(kandangId: widget.kandangId),
         ],
       ),
     );

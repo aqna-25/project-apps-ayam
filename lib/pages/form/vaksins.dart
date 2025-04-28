@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class VaksinForm extends StatefulWidget {
-  final int kandangId;
+  final String kandangId; // Changed to int
   final Map<String, dynamic>? vaksinToEdit;
   final VoidCallback? onSave;
 
@@ -25,11 +25,12 @@ class _VaksinFormState extends State<VaksinForm> {
   TextEditingController tanggalVaksinController = TextEditingController();
   TextEditingController kuantitasController = TextEditingController();
   TextEditingController hargaSatuanController = TextEditingController();
-  String? jenisVaksinTerpilih; // Menggunakan String untuk dropdown
+  String? jenisVaksinTerpilih;
   bool isLoading = false;
   String? errorMessage;
+  int? userId; // Add user ID field
 
-  // Pastikan list tidak null dengan menginisialisasi di sini
+  // List of vaccine options
   List<String> opsiJenisVaksin = ['ND', 'IB', 'Gumboro'];
 
   @override
@@ -39,6 +40,10 @@ class _VaksinFormState extends State<VaksinForm> {
     tanggalVaksinController.text = DateFormat(
       'yyyy-MM-dd',
     ).format(DateTime.now());
+
+    // For this example, hardcode userId to 1
+    // In a real app, you would get this from authentication state
+    userId = 1;
 
     // If editing, pre-fill form fields
     if (widget.vaksinToEdit != null) {
@@ -102,7 +107,8 @@ class _VaksinFormState extends State<VaksinForm> {
 
     try {
       final Map<String, dynamic> data = {
-        'kandang_id': widget.kandangId.toString(),
+        'user_id': userId,
+        'kandang_id': widget.kandangId,
         'jenis_vaksin': jenisVaksinTerpilih,
         'tgl_vaksin': tanggalVaksinController.text,
         'kuantitas': kuantitasController.text,
@@ -122,7 +128,6 @@ class _VaksinFormState extends State<VaksinForm> {
 
       final http.Response response;
 
-      // Gunakan body yang benar untuk POST/PUT request
       if (widget.vaksinToEdit != null) {
         response = await http.put(
           url,
@@ -149,14 +154,12 @@ class _VaksinFormState extends State<VaksinForm> {
       }
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Call onSave callback if provided
         if (widget.onSave != null) {
           widget.onSave!();
         }
 
         if (!mounted) return;
 
-        // Show success message and navigate back
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -203,7 +206,7 @@ class _VaksinFormState extends State<VaksinForm> {
             Navigator.pop(context);
           },
         ),
-        elevation: 1, // Sedikit shadow untuk memisahkan appbar
+        elevation: 1,
       ),
       body:
           isLoading
@@ -211,9 +214,7 @@ class _VaksinFormState extends State<VaksinForm> {
                 child: CircularProgressIndicator(color: Color(0xFF82985E)),
               )
               : SingleChildScrollView(
-                padding: const EdgeInsets.all(
-                  20.0,
-                ), // Padding lebih besar untuk ruang
+                padding: const EdgeInsets.all(20.0),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -322,9 +323,6 @@ class _VaksinFormState extends State<VaksinForm> {
                           if (value == null || value.isEmpty) {
                             return 'Kuantitas harus diisi';
                           }
-                          if (int.tryParse(value) == null) {
-                            return 'Kuantitas harus berupa angka';
-                          }
                           return null;
                         },
                       ),
@@ -348,15 +346,10 @@ class _VaksinFormState extends State<VaksinForm> {
                           if (value == null || value.isEmpty) {
                             return 'Harga satuan harus diisi';
                           }
-                          if (double.tryParse(value) == null) {
-                            return 'Harga satuan harus berupa angka';
-                          }
                           return null;
                         },
                       ),
-                      const SizedBox(
-                        height: 32.0,
-                      ), // Spasi lebih besar sebelum tombol
+                      const SizedBox(height: 32.0),
                       // Tombol Simpan
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(

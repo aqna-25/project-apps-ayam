@@ -1,67 +1,107 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:projectayam/pages/form/panen.dart';
+import 'package:projectayam/pages/form/doc.dart';
 
-class DetailPanen extends StatefulWidget {
+class DetailDoc extends StatefulWidget {
   final String kandangId;
-  const DetailPanen({Key? key, required this.kandangId}) : super(key: key);
+
+  const DetailDoc({Key? key, required this.kandangId}) : super(key: key);
 
   @override
-  State<DetailPanen> createState() => _DetailPanenState();
+  State<DetailDoc> createState() => _DetailDocState();
 }
 
-class _DetailPanenState extends State<DetailPanen> {
-  List<Map<String, dynamic>> panenList = [];
+class _DetailDocState extends State<DetailDoc> {
+  List<Map<String, dynamic>> docList = [];
   bool isLoading = true;
   String errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    fetchPanenData();
+    fetchDocData();
   }
 
-  Future<void> fetchPanenData() async {
+  Future<void> fetchDocData() async {
     setState(() {
       isLoading = true;
       errorMessage = '';
     });
 
     try {
-      print('Kandang ID: ${widget.kandangId}');
       final response = await http.get(
         Uri.parse('https://ayamku.web.id/api/kandangs/${widget.kandangId}'),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body)['data']; // Akses objek 'data'
-        print('API Response: $data'); // Log respons API
+        final responseData = json.decode(response.body);
+        print(
+          'Raw API Response: $responseData',
+        ); // Log respons mentah untuk debug
 
-        // Proses data panen
-        if (data['panen'] != null) {
-          panenList = List<Map<String, dynamic>>.from(
-            data['panen'].map(
-              (item) => {
-                'id': item['id']?.toString() ?? '',
-                'tgl_panen': _formatDate(item['tgl_panen'] ?? ''),
-                'nama_pembeli': item['nama_pembeli'] ?? 'Tidak ada nama',
-                'no_hp': item['no_hp'] ?? '-',
-                'jml_panen': item['jml_panen']?.toString() ?? '0',
-                'tonanse': item['tonanse']?.toString() ?? '0',
-                'berat_ayam': item['berat_ayam']?.toString() ?? '0',
-                'harga_kg': item['harga_kg']?.toString() ?? '0',
-                'total_harga': _calculateTotalPrice(
-                  item['berat_ayam']?.toString() ?? '0',
-                  item['harga_kg']?.toString() ?? '0',
-                ),
-                'raw_data': item,
-              },
-            ),
-          );
+        // Cek struktur data respons
+        if (responseData is Map<String, dynamic> &&
+            responseData.containsKey('data')) {
+          final data = responseData['data'];
+
+          // Cek apakah data DOC ada dan dalam format yang tepat
+          if (data is Map<String, dynamic> && data.containsKey('doc')) {
+            // Periksa tipe data 'doc'
+            final docData = data['doc'];
+
+            if (docData is List) {
+              // Respons berupa array/list seperti yang diharapkan
+              docList =
+                  docData.map<Map<String, dynamic>>((item) {
+                    return {
+                      'id': item['id']?.toString() ?? '',
+                      'bobot_awal': item['bobot_awal']?.toString() ?? '0',
+                      'populasi_awal': item['populasi_awal']?.toString() ?? '0',
+                      'kematian': item['kematian']?.toString() ?? '0',
+                      'populasi_akhir': _calculateFinalPopulation(
+                        item['populasi_awal']?.toString() ?? '0',
+                        item['kematian']?.toString() ?? '0',
+                      ),
+                      'raw_data': item,
+                    };
+                  }).toList();
+            } else if (docData is Map<String, dynamic>) {
+              // Respons berupa objek tunggal, bukan array
+              // Konversi objek tunggal ke dalam array dengan satu item
+              docList = [
+                {
+                  'id': docData['id']?.toString() ?? '',
+                  'bobot_awal': docData['bobot_awal']?.toString() ?? '0',
+                  'populasi_awal': docData['populasi_awal']?.toString() ?? '0',
+                  'kematian': docData['kematian']?.toString() ?? '0',
+                  'populasi_akhir': _calculateFinalPopulation(
+                    docData['populasi_awal']?.toString() ?? '0',
+                    docData['kematian']?.toString() ?? '0',
+                  ),
+                  'raw_data': docData,
+                },
+              ];
+              print(
+                'DOC data is a single object, converted to list with one item',
+              );
+            } else {
+              // Data kosong atau format tidak dikenali
+              docList = [];
+              print('DOC data is empty or in unrecognized format: $docData');
+            }
+          } else {
+            docList = [];
+            print(
+              'Tidak ada data DOC dalam respons API atau format tidak sesuai',
+            );
+          }
         } else {
-          panenList = [];
-          print('No panen data found in API response');
+          setState(() {
+            errorMessage = 'Format respons API tidak sesuai';
+            isLoading = false;
+          });
+          return;
         }
 
         setState(() {
@@ -75,7 +115,7 @@ class _DetailPanenState extends State<DetailPanen> {
         });
       }
     } catch (e) {
-      print('Exception occurred: $e');
+      print('Terjadi pengecualian: $e');
       setState(() {
         errorMessage = 'Network error: $e';
         isLoading = false;
@@ -83,50 +123,32 @@ class _DetailPanenState extends State<DetailPanen> {
     }
   }
 
-  // Menghitung total harga
-  String _calculateTotalPrice(String beratAyam, String hargaKg) {
+  // Calculate final population (populasi awal - kematian)
+  String _calculateFinalPopulation(String populasiAwal, String kematian) {
     try {
-      double berat = double.parse(beratAyam);
-      double harga = double.parse(hargaKg);
-      return (berat * harga).toStringAsFixed(0);
+      int populasi = int.parse(populasiAwal);
+      int mati = int.parse(kematian);
+      return (populasi - mati).toString();
     } catch (e) {
       return '0';
     }
   }
 
-  // Helper method to format date from API (YYYY-MM-DD) to display format (DD/MM/YYYY)
-  String _formatDate(String apiDate) {
-    try {
-      if (apiDate.isEmpty) return '';
-
-      final parts = apiDate.split('-');
-      if (parts.length == 3) {
-        return '${parts[2]}/${parts[1]}/${parts[0]}';
-      }
-      return apiDate; // Return original if not in expected format
-    } catch (e) {
-      return apiDate; // Return original on error
-    }
-  }
-
-  // Helper method to delete items
+  // Delete DOC data
   Future<void> _deleteItem(String id) async {
     try {
       final response = await http.delete(
-        Uri.parse('https://ayamku.web.id/api/panens/$id'),
+        Uri.parse('https://ayamku.web.id/api/docs/$id'),
       );
 
       if (response.statusCode == 200) {
-        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Data panen berhasil dihapus')),
+          const SnackBar(content: Text('Data DOC berhasil dihapus')),
         );
-        // Refresh data
-        fetchPanenData();
+        fetchDocData(); // Refresh the data
       } else {
-        // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal menghapus data panen')),
+          const SnackBar(content: Text('Gagal menghapus data DOC')),
         );
       }
     } catch (e) {
@@ -158,7 +180,7 @@ class _DetailPanenState extends State<DetailPanen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: fetchPanenData,
+              onPressed: fetchDocData,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF82985E),
                 foregroundColor: Colors.white,
@@ -170,19 +192,19 @@ class _DetailPanenState extends State<DetailPanen> {
       );
     }
 
-    if (panenList.isEmpty) {
+    if (docList.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              Icons.inventory_2_outlined,
+              Icons.baby_changing_station,
               size: 80,
               color: Colors.grey,
             ),
             const SizedBox(height: 20),
             const Text(
-              'Belum ada data panen tersimpan',
+              'Belum ada data DOC tersimpan',
               style: TextStyle(fontSize: 16, color: Colors.grey),
               textAlign: TextAlign.center,
             ),
@@ -192,10 +214,13 @@ class _DetailPanenState extends State<DetailPanen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder:
-                        (context) => PanenForm(kandangId: widget.kandangId),
+                    builder: (context) => DocForm(kandangId: widget.kandangId),
                   ),
-                ).then((_) => fetchPanenData());
+                ).then((value) {
+                  if (value == true) {
+                    fetchDocData();
+                  }
+                });
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF82985E),
@@ -208,25 +233,25 @@ class _DetailPanenState extends State<DetailPanen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Tambah panen'),
+              child: const Text('Tambah DOC'),
             ),
           ],
         ),
       );
     }
 
-    // Menampilkan list data panen jika data tersedia
+    // Display DOC data as a list
     return Column(
       children: [
         Expanded(
           child: RefreshIndicator(
-            onRefresh: fetchPanenData,
+            onRefresh: fetchDocData,
             color: const Color(0xFF82985E),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: panenList.length,
+              itemCount: docList.length,
               itemBuilder: (context, index) {
-                final item = panenList[index];
+                final item = docList[index];
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
@@ -265,16 +290,16 @@ class _DetailPanenState extends State<DetailPanen> {
                               ).withOpacity(0.2),
                               radius: 20,
                               child: const Icon(
-                                Icons.inventory_2,
+                                Icons.baby_changing_station,
                                 color: Color(0xFF82985E),
                                 size: 20,
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Expanded(
+                            const Expanded(
                               child: Text(
-                                item['nama_pembeli'],
-                                style: const TextStyle(
+                                'Data DOC',
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
                                   color: Color(0xFF333333),
@@ -292,21 +317,25 @@ class _DetailPanenState extends State<DetailPanen> {
                                     context,
                                     MaterialPageRoute(
                                       builder:
-                                          (context) => PanenForm(
+                                          (context) => DocForm(
                                             kandangId: widget.kandangId,
-                                            panenToEdit: item['raw_data'],
+                                            docToEdit: item['raw_data'],
                                           ),
                                     ),
-                                  ).then((_) => fetchPanenData());
+                                  ).then((value) {
+                                    if (value == true) {
+                                      fetchDocData();
+                                    }
+                                  });
                                 } else if (value == 'delete') {
                                   // Show confirmation dialog
                                   showDialog(
                                     context: context,
                                     builder:
                                         (context) => AlertDialog(
-                                          title: const Text('Hapus Data Panen'),
-                                          content: Text(
-                                            'Apakah Anda yakin ingin menghapus data panen dari ${item['nama_pembeli']}?',
+                                          title: const Text('Hapus Data DOC'),
+                                          content: const Text(
+                                            'Apakah Anda yakin ingin menghapus data DOC ini?',
                                           ),
                                           actions: [
                                             TextButton(
@@ -386,27 +415,27 @@ class _DetailPanenState extends State<DetailPanen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildDetailRow(
-                              icon: Icons.calendar_today,
-                              label: 'Tanggal',
-                              value: item['tgl_panen'],
-                            ),
-                            const SizedBox(height: 12),
-                            _buildDetailRow(
-                              icon: Icons.production_quantity_limits,
-                              label: 'Jumlah',
-                              value: '${item['jml_panen']} ekor',
-                            ),
-                            const SizedBox(height: 12),
-                            _buildDetailRow(
                               icon: Icons.scale,
-                              label: 'Berat',
-                              value: '${item['berat_ayam']} kg',
+                              label: 'Bobot Awal',
+                              value: '${item['bobot_awal']} kg',
                             ),
                             const SizedBox(height: 12),
                             _buildDetailRow(
-                              icon: Icons.attach_money,
-                              label: 'Total',
-                              value: 'Rp${item['total_harga']}',
+                              icon: Icons.groups,
+                              label: 'Populasi Awal',
+                              value: '${item['populasi_awal']} ekor',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              icon: Icons.error_outline,
+                              label: 'Kematian',
+                              value: '${item['kematian']} ekor',
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              icon: Icons.check_circle_outline,
+                              label: 'Populasi Akhir',
+                              value: '${item['populasi_akhir']} ekor',
                             ),
                           ],
                         ),
@@ -425,12 +454,16 @@ class _DetailPanenState extends State<DetailPanen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PanenForm(kandangId: widget.kandangId),
+                  builder: (context) => DocForm(kandangId: widget.kandangId),
                 ),
-              ).then((_) => fetchPanenData());
+              ).then((value) {
+                if (value == true) {
+                  fetchDocData();
+                }
+              });
             },
             icon: const Icon(Icons.add),
-            label: const Text('Tambah Panen'),
+            label: const Text('Tambah DOC'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF82985E),
               foregroundColor: Colors.white,
@@ -450,23 +483,22 @@ class _DetailPanenState extends State<DetailPanen> {
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text('Detail Panen'),
+            title: const Text('Detail DOC'),
             content: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildDetailItem('Pembeli', item['nama_pembeli']),
-                  _buildDetailItem('Nomor HP', item['no_hp']),
-                  _buildDetailItem('Tanggal Panen', item['tgl_panen']),
-                  _buildDetailItem('Jumlah Ayam', '${item['jml_panen']} ekor'),
-                  _buildDetailItem('Tonase', '${item['tonanse']} ton'),
-                  _buildDetailItem('Berat Ayam', '${item['berat_ayam']} kg'),
-                  _buildDetailItem('Harga per Kg', 'Rp${item['harga_kg']}'),
+                  _buildDetailItem('Bobot Awal', '${item['bobot_awal']} kg'),
+                  _buildDetailItem(
+                    'Populasi Awal',
+                    '${item['populasi_awal']} ekor',
+                  ),
+                  _buildDetailItem('Kematian', '${item['kematian']} ekor'),
                   const Divider(),
                   _buildDetailItem(
-                    'Total Harga',
-                    'Rp${item['total_harga']}',
+                    'Populasi Akhir',
+                    '${item['populasi_akhir']} ekor',
                     isBold: true,
                   ),
                 ],
@@ -489,7 +521,7 @@ class _DetailPanenState extends State<DetailPanen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 100,
+            width: 120,
             child: Text(
               '$label:',
               style: TextStyle(

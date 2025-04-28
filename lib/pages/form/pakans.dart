@@ -3,9 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PakanForm extends StatefulWidget {
-  final int kandangId;
+  final String kandangId; // Changed to String to match API requirements
   final Map<String, dynamic>?
   pakanToEdit; // Data pakan untuk diedit, null jika membuat baru
 
@@ -18,47 +19,71 @@ class PakanForm extends StatefulWidget {
 class _PakanFormState extends State<PakanForm> {
   final _formKey = GlobalKey<FormState>();
   TextEditingController tanggalMasukController = TextEditingController();
-  TextEditingController tanggalVaksinController = TextEditingController();
   TextEditingController kuantitasController = TextEditingController();
   TextEditingController hargaSatuanController = TextEditingController();
-  String? namaPakanTerpilih;
-  String? jenisVaksinTerpilih;
 
   bool _isLoading = false;
   bool _isEditMode = false;
   int? _pakanId;
 
+  // Added declaration for these variables
+  String? namaPakanTerpilih;
+
+  // User ID should be stored or retrieved from your auth system
+  String? userId; // This should be set from your authentication system
+
   // Pastikan list tidak null dengan menginisialisasi di sini
   List<String> opsiNamaPakan = ['Pakan A', 'Pakan B', 'Pakan C'];
-  List<String> opsiJenisVaksin = ['ND', 'IB', 'Gumboro'];
 
   @override
   void initState() {
     super.initState();
     _initializeData();
+    _getUserIdFromSharedPreferences();
+  }
+
+  Future<void> _getUserIdFromSharedPreferences() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      final storedUserId = prefs.getInt('user_id');
+
+      setState(() {
+        userId = storedUserId?.toString();
+      });
+
+      if (userId == null || userId!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Sesi login Anda telah berakhir. Silakan login kembali.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gagal memuat data pengguna: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _initializeData() {
-    // Periksa apakah dalam mode edit
     if (widget.pakanToEdit != null) {
       _isEditMode = true;
       _pakanId = widget.pakanToEdit!['id'];
-
-      // Isi form dengan data yang ada
       tanggalMasukController.text = widget.pakanToEdit!['tgl_masuk'] ?? '';
+      namaPakanTerpilih = widget.pakanToEdit!['produk'];
       kuantitasController.text =
           widget.pakanToEdit!['kuantitas']?.toString() ?? '';
       hargaSatuanController.text =
           widget.pakanToEdit!['harga_satuan']?.toString() ?? '';
-      namaPakanTerpilih = widget.pakanToEdit!['produk'];
-
-      // Jika data vaksin tersedia (custom field)
-      if (widget.pakanToEdit!.containsKey('tgl_vaksin')) {
-        tanggalVaksinController.text = widget.pakanToEdit!['tgl_vaksin'] ?? '';
-      }
-      if (widget.pakanToEdit!.containsKey('jenis_vaksin')) {
-        jenisVaksinTerpilih = widget.pakanToEdit!['jenis_vaksin'];
-      }
     }
   }
 
@@ -75,8 +100,8 @@ class _PakanFormState extends State<PakanForm> {
         return Theme(
           data: ThemeData.light().copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF82985E), // Warna utama
-              onPrimary: Colors.white, // Warna teks di atas primary
+              primary: Color(0xFF82985E),
+              onPrimary: Colors.white,
               surface: Colors.white,
               onSurface: Colors.black,
             ),
@@ -104,6 +129,17 @@ class _PakanFormState extends State<PakanForm> {
       return;
     }
 
+    // Validate user_id is available
+    if (userId == null || userId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('User ID tidak tersedia, silakan login ulang'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -117,22 +153,13 @@ class _PakanFormState extends State<PakanForm> {
 
       // Siapkan data untuk dikirim sesuai format body request API
       final Map<String, dynamic> requestData = {
+        'user_id': userId, // Added required user_id
         'kandang_id': widget.kandangId,
         'tgl_masuk': tanggalMasukController.text,
         'produk': namaPakanTerpilih,
         'kuantitas': kuantitasController.text,
         'harga_satuan': hargaSatuanController.text,
-        // Field user_id mungkin didapatkan dari backend berdasarkan token autentikasi
       };
-
-      // Tambahkan data vaksin jika diisi
-      if (tanggalVaksinController.text.isNotEmpty) {
-        requestData['tgl_vaksin'] = tanggalVaksinController.text;
-      }
-
-      if (jenisVaksinTerpilih != null) {
-        requestData['jenis_vaksin'] = jenisVaksinTerpilih;
-      }
 
       if (!_isEditMode) {
         // Tambahkan timestamp untuk data baru
@@ -312,9 +339,6 @@ class _PakanFormState extends State<PakanForm> {
                   if (value == null || value.isEmpty) {
                     return 'Kuantitas harus diisi';
                   }
-                  if (int.tryParse(value) == null) {
-                    return 'Kuantitas harus berupa angka';
-                  }
                   return null;
                 },
               ),
@@ -338,62 +362,7 @@ class _PakanFormState extends State<PakanForm> {
                   if (value == null || value.isEmpty) {
                     return 'Harga satuan harus diisi';
                   }
-                  if (double.tryParse(value) == null) {
-                    return 'Harga satuan harus berupa angka';
-                  }
                   return null;
-                },
-              ),
-              const SizedBox(height: 16.0),
-
-              // Tanggal Vaksin
-              TextFormField(
-                controller: tanggalVaksinController,
-                decoration: InputDecoration(
-                  labelText: 'Tanggal Vaksin',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 12,
-                  ),
-                  suffixIcon: const Icon(
-                    Icons.calendar_today,
-                    color: Colors.grey,
-                  ),
-                ),
-                readOnly: true,
-                onTap: () => _pilihTanggal(context, tanggalVaksinController),
-              ),
-              const SizedBox(height: 16.0),
-
-              // Jenis Vaksin
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'Jenis Vaksin',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 12,
-                  ),
-                ),
-                value: jenisVaksinTerpilih,
-                items:
-                    opsiJenisVaksin.map<DropdownMenuItem<String>>((
-                      String value,
-                    ) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    jenisVaksinTerpilih = newValue;
-                  });
                 },
               ),
               const SizedBox(height: 32.0), // Spasi lebih besar sebelum tombol

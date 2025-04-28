@@ -5,10 +5,8 @@ import 'package:projectayam/pages/form/pakans.dart';
 import 'package:projectayam/pages/form/vaksins.dart';
 
 class DetailSapronak extends StatefulWidget {
-  final int kandangId;
-
+  final String kandangId;
   const DetailSapronak({Key? key, required this.kandangId}) : super(key: key);
-
   @override
   State<DetailSapronak> createState() => _DetailSapronakState();
 }
@@ -35,57 +33,63 @@ class _DetailSapronakState extends State<DetailSapronak>
     });
 
     try {
+      print('Kandang ID: ${widget.kandangId}');
       final response = await http.get(
         Uri.parse('https://ayamku.web.id/api/kandangs/${widget.kandangId}'),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = json.decode(response.body)['data']; // Akses objek 'data'
+        print('API Response: $data'); // Log respons API
+
+        // Proses data pakan
+        if (data['pakan'] != null) {
+          pakanList = List<Map<String, dynamic>>.from(
+            data['pakan'].map(
+              (item) => {
+                'nama': item['produk'] ?? 'Tidak ada nama',
+                'jumlah': '${item['kuantitas'] ?? 0} kg',
+                'tanggal': _formatDate(item['tgl_masuk'] ?? ''),
+                'id': item['id']?.toString() ?? '',
+                'raw_data': item,
+              },
+            ),
+          );
+        } else {
+          pakanList = [];
+          print('No pakan data found in API response');
+        }
+
+        // Proses data vaksin
+        if (data['vaksin'] != null) {
+          vaksinList = List<Map<String, dynamic>>.from(
+            data['vaksin'].map(
+              (item) => {
+                'nama': item['jenis_vaksin'] ?? 'Tidak ada nama',
+                'dosis': '${item['kuantitas'] ?? 0} dosis',
+                'tanggal': _formatDate(item['tgl_vaksin'] ?? ''),
+                'id': item['id']?.toString() ?? '',
+                'raw_data': item,
+              },
+            ),
+          );
+        } else {
+          vaksinList = [];
+          print('No vaksin data found in API response');
+        }
 
         setState(() {
-          // Periksa apakah data pakan ada dan bukan null sebelum menggunakan map
-          if (data['pakan'] != null) {
-            pakanList = List<Map<String, dynamic>>.from(
-              data['pakan'].map(
-                (item) => {
-                  'nama': item['produk'],
-                  'jumlah': '${item['kuantitas']} kg',
-                  'tanggal': _formatDate(item['tgl_masuk']),
-                  'id': item['id'],
-                  'raw_data': item,
-                },
-              ),
-            );
-          } else {
-            pakanList = []; // Set ke list kosong jika null
-          }
-
-          // Periksa apakah data vaksin ada dan bukan null sebelum menggunakan map
-          if (data['vaksin'] != null) {
-            vaksinList = List<Map<String, dynamic>>.from(
-              data['vaksin'].map(
-                (item) => {
-                  'nama': item['jenis_vaksin'],
-                  'dosis': '${item['kuantitas']} dosis',
-                  'tanggal': _formatDate(item['tgl_vaksin']),
-                  'id': item['id'],
-                  'raw_data': item,
-                },
-              ),
-            );
-          } else {
-            vaksinList = []; // Set ke list kosong jika null
-          }
-
           isLoading = false;
         });
       } else {
+        print('API Error Status Code: ${response.statusCode}');
         setState(() {
           errorMessage = 'Gagal memuat data. Error: ${response.statusCode}';
           isLoading = false;
         });
       }
     } catch (e) {
+      print('Exception occurred: $e');
       setState(() {
         errorMessage = 'Network error: $e';
         isLoading = false;
@@ -96,6 +100,8 @@ class _DetailSapronakState extends State<DetailSapronak>
   // Helper method to format date from API (YYYY-MM-DD) to display format (DD/MM/YYYY)
   String _formatDate(String apiDate) {
     try {
+      if (apiDate.isEmpty) return '';
+
       final parts = apiDate.split('-');
       if (parts.length == 3) {
         return '${parts[2]}/${parts[1]}/${parts[0]}';
@@ -124,7 +130,6 @@ class _DetailSapronakState extends State<DetailSapronak>
           indicatorColor: const Color(0xFF82985E),
           tabs: const [Tab(text: 'Pakan'), Tab(text: 'Vaksin')],
         ),
-
         // Tab Bar View untuk menampilkan konten
         Expanded(
           child:
@@ -146,7 +151,7 @@ class _DetailSapronakState extends State<DetailSapronak>
                       _buildDataList(
                         pakanList,
                         'pakan',
-                        Icons.food_bank_outlined,
+                        Icons.food_bank, // Updated: removed 'outlined'
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -154,34 +159,29 @@ class _DetailSapronakState extends State<DetailSapronak>
                                 (context) =>
                                     PakanForm(kandangId: widget.kandangId),
                           ),
-                        ).then(
-                          (_) => fetchSapronakData(),
-                        ), // Refresh setelah kembali
-                        onDelete: (int id) async {
+                        ).then((_) => fetchSapronakData()),
+                        onDelete: (String id) async {
                           await _deleteItem('pakan', id);
                         },
                         onEdit: (Map<String, dynamic> item) {
-                          // Navigate to edit form with the item data
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder:
                                   (context) => PakanForm(
                                     kandangId: widget.kandangId,
-                                    pakanToEdit: item['raw_data'],
+                                    pakanToEdit:
+                                        item['raw_data'], // Fixed: Changed 'rawdata' to 'raw_data'
                                   ),
                             ),
-                          ).then(
-                            (_) => fetchSapronakData(),
-                          ); // Refresh setelah kembali
+                          ).then((_) => fetchSapronakData());
                         },
                       ),
-
                       // Tab 2: Vaksin
                       _buildDataList(
                         vaksinList,
                         'vaksin',
-                        Icons.medical_services_outlined,
+                        Icons.medical_services, // Updated: removed 'outlined'
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -189,35 +189,29 @@ class _DetailSapronakState extends State<DetailSapronak>
                                 (context) => VaksinForm(
                                   kandangId: widget.kandangId,
                                   onSave: () {
-                                    // Refresh data after adding new vaksin
                                     fetchSapronakData();
                                   },
                                 ),
                           ),
-                        ).then(
-                          (_) => fetchSapronakData(),
-                        ), // Refresh setelah kembali
-                        onDelete: (int id) async {
+                        ).then((_) => fetchSapronakData()),
+                        onDelete: (String id) async {
                           await _deleteItem('vaksin', id);
                         },
                         onEdit: (Map<String, dynamic> item) {
-                          // Navigate to edit form with the item data
                           Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder:
                                   (context) => VaksinForm(
                                     kandangId: widget.kandangId,
-                                    vaksinToEdit: item['raw_data'],
+                                    vaksinToEdit:
+                                        item['raw_data'], // Fixed: Changed 'rawdata' to 'raw_data'
                                     onSave: () {
-                                      // Refresh data after editing
                                       fetchSapronakData();
                                     },
                                   ),
                             ),
-                          ).then(
-                            (_) => fetchSapronakData(),
-                          ); // Refresh setelah kembali
+                          ).then((_) => fetchSapronakData());
                         },
                       ),
                     ],
@@ -228,7 +222,7 @@ class _DetailSapronakState extends State<DetailSapronak>
   }
 
   // Helper method to delete items
-  Future<void> _deleteItem(String type, int id) async {
+  Future<void> _deleteItem(String type, String id) async {
     try {
       final response = await http.delete(
         Uri.parse('https://ayamku.web.id/api/${type}s/$id'),
@@ -254,13 +248,14 @@ class _DetailSapronakState extends State<DetailSapronak>
     }
   }
 
-  // Helper method untuk membangun list pakan atau vaksin
+  // Ganti fungsi _buildDataList dengan kode berikut untuk card yang lebih baik
+
   Widget _buildDataList(
     List<Map<String, dynamic>> data,
     String type,
     IconData icon,
     VoidCallback onAddPressed, {
-    required Function(int) onDelete,
+    required Function(String) onDelete,
     required Function(Map<String, dynamic>) onEdit,
   }) {
     if (data.isEmpty) {
@@ -268,7 +263,7 @@ class _DetailSapronakState extends State<DetailSapronak>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 80, color: Colors.grey),
+            Icon(icon, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 20),
             Text(
               'Belum ada data $type tersimpan',
@@ -281,6 +276,13 @@ class _DetailSapronakState extends State<DetailSapronak>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF82985E),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Text('Tambah $type'),
             ),
@@ -300,83 +302,162 @@ class _DetailSapronakState extends State<DetailSapronak>
               itemCount: data.length,
               itemBuilder: (context, index) {
                 final item = data[index];
-                return Card(
-                  elevation: 2,
+                return Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  child: ListTile(
-                    leading: Icon(icon, color: const Color(0xFF82985E)),
-                    title: Text(item['nama']),
-                    subtitle: Text(
-                      type == 'pakan'
-                          ? 'Jumlah: ${item['jumlah']} • ${item['tanggal']}'
-                          : 'Dosis: ${item['dosis']} • ${item['tanggal']}',
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      onPressed: () {
-                        // Tampilkan menu untuk edit atau hapus
-                        showModalBottomSheet(
-                          context: context,
-                          builder:
-                              (context) => Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.edit),
-                                    title: const Text('Edit'),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      onEdit(item);
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    title: const Text(
-                                      'Hapus',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                    onTap: () {
-                                      Navigator.pop(context);
-                                      // Show confirmation dialog
-                                      showDialog(
-                                        context: context,
-                                        builder:
-                                            (context) => AlertDialog(
-                                              title: Text('Hapus $type'),
-                                              content: Text(
-                                                'Apakah Anda yakin ingin menghapus ${item['nama']}?',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                      ),
-                                                  child: const Text('Batal'),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    Navigator.pop(context);
-                                                    onDelete(item['id']);
-                                                  },
-                                                  style: TextButton.styleFrom(
-                                                    foregroundColor: Colors.red,
-                                                  ),
-                                                  child: const Text('Hapus'),
-                                                ),
-                                              ],
-                                            ),
-                                      );
-                                    },
-                                  ),
-                                ],
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        spreadRadius: 1,
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with colored background
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF82985E).withOpacity(0.1),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: const Color(
+                                0xFF82985E,
+                              ).withOpacity(0.2),
+                              radius: 20,
+                              child: Icon(
+                                icon,
+                                color: const Color(0xFF82985E),
+                                size: 20,
                               ),
-                        );
-                      },
-                    ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                item['nama'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Color(0xFF333333),
+                                ),
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: Color(0xFF82985E),
+                              ),
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  onEdit(item);
+                                } else if (value == 'delete') {
+                                  // Show confirmation dialog
+                                  showDialog(
+                                    context: context,
+                                    builder:
+                                        (context) => AlertDialog(
+                                          title: Text('Hapus $type'),
+                                          content: Text(
+                                            'Apakah Anda yakin ingin menghapus ${item['nama']}?',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed:
+                                                  () => Navigator.pop(context),
+                                              child: const Text('Batal'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.pop(context);
+                                                onDelete(item['id'].toString());
+                                              },
+                                              style: TextButton.styleFrom(
+                                                foregroundColor: Colors.red,
+                                              ),
+                                              child: const Text('Hapus'),
+                                            ),
+                                          ],
+                                        ),
+                                  );
+                                }
+                              },
+                              itemBuilder:
+                                  (
+                                    BuildContext context,
+                                  ) => <PopupMenuEntry<String>>[
+                                    const PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.edit, size: 20),
+                                          SizedBox(width: 8),
+                                          Text('Edit'),
+                                        ],
+                                      ),
+                                    ),
+                                    const PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                            size: 20,
+                                          ),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Hapus',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow(
+                              icon:
+                                  type == 'pakan'
+                                      ? Icons.inventory_2
+                                      : Icons.medical_information,
+                              label: type == 'pakan' ? 'Jumlah' : 'Dosis',
+                              value:
+                                  type == 'pakan'
+                                      ? item['jumlah']
+                                      : item['dosis'],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildDetailRow(
+                              icon: Icons.calendar_today,
+                              label: 'Tanggal',
+                              value: item['tanggal'],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 );
               },
@@ -393,7 +474,37 @@ class _DetailSapronakState extends State<DetailSapronak>
               backgroundColor: const Color(0xFF82985E),
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Tambahkan fungsi helper ini untuk menampilkan detail row
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          '$label:',
+          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Color(0xFF333333),
           ),
         ),
       ],

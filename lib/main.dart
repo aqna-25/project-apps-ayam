@@ -29,7 +29,6 @@ class _MyAppState extends State<MyApp> {
     // Cek apakah user login
     bool isLogin = prefs.getBool('isLogin') ?? false;
 
-    // Jika login, cek waktu login
     if (isLogin) {
       // Ambil waktu login
       int? loginTimestamp = prefs.getInt('loginTimestamp');

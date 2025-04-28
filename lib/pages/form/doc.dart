@@ -5,33 +5,23 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class PanenForm extends StatefulWidget {
-  final String
-  kandangId; // ID kandang dalam bentuk String untuk compatibility dengan API
-  final Map<String, dynamic>?
-  panenToEdit; // Data panen untuk diedit, null jika membuat baru
-
-  const PanenForm({super.key, required this.kandangId, this.panenToEdit});
+class DocForm extends StatefulWidget {
+  final String kandangId;
+  final Map<String, dynamic>? docToEdit;
+  const DocForm({super.key, required this.kandangId, this.docToEdit});
 
   @override
-  State<PanenForm> createState() => _PanenFormState();
+  State<DocForm> createState() => _DocFormState();
 }
 
-class _PanenFormState extends State<PanenForm> {
+class _DocFormState extends State<DocForm> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controller untuk semua field
-  TextEditingController tglPanenController = TextEditingController();
-  TextEditingController namaPembeliController = TextEditingController();
-  TextEditingController noHpController = TextEditingController();
-  TextEditingController jmlPanenController = TextEditingController();
-  TextEditingController tonanseController = TextEditingController();
-  TextEditingController beratAyamController = TextEditingController();
-  TextEditingController hargaKgController = TextEditingController();
-
+  TextEditingController bobotAwalController = TextEditingController();
+  TextEditingController populasiAwalController = TextEditingController();
+  TextEditingController kematianController = TextEditingController();
   bool _isLoading = false;
   bool _isEditMode = false;
-  int? _panenId;
+  int? _docId;
 
   // User ID dari sistem autentikasi
   String? userId;
@@ -79,62 +69,19 @@ class _PanenFormState extends State<PanenForm> {
 
   void _initializeData() {
     // Periksa apakah dalam mode edit
-    if (widget.panenToEdit != null) {
+    if (widget.docToEdit != null) {
       _isEditMode = true;
-      _panenId = widget.panenToEdit!['id'];
-
+      _docId = widget.docToEdit!['id'];
       // Isi form dengan data yang sudah ada
-      tglPanenController.text = widget.panenToEdit!['tgl_panen'] ?? '';
-      namaPembeliController.text = widget.panenToEdit!['nama_pembeli'] ?? '';
-      noHpController.text = widget.panenToEdit!['no_hp'] ?? '';
-      jmlPanenController.text =
-          widget.panenToEdit!['jml_panen']?.toString() ?? '';
-      tonanseController.text = widget.panenToEdit!['tonanse']?.toString() ?? '';
-      beratAyamController.text =
-          widget.panenToEdit!['berat_ayam']?.toString() ?? '';
-      hargaKgController.text =
-          widget.panenToEdit!['harga_kg']?.toString() ?? '';
+      bobotAwalController.text =
+          widget.docToEdit!['bobot_Awal']?.toString() ?? '';
+      populasiAwalController.text =
+          widget.docToEdit!['populasi_awal']?.toString() ?? '';
+      kematianController.text = widget.docToEdit!['kematian']?.toString() ?? '';
     }
   }
 
-  Future<void> _pilihTanggal(
-    BuildContext context,
-    TextEditingController controller,
-  ) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2023),
-      lastDate: DateTime(2026),
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF82985E), // Warna utama
-              onPrimary: Colors.white, // Warna teks di atas primary
-              surface: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(
-                  0xFF82985E,
-                ), // Warna tombol OK/Cancel
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        controller.text = DateFormat('yyyy-MM-dd').format(picked);
-      });
-    }
-  }
-
-  Future<void> _simpanDataPanen() async {
+  Future<void> _simpanDataDoc() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -155,23 +102,19 @@ class _PanenFormState extends State<PanenForm> {
     });
 
     try {
-      final baseUrl = 'https://ayamku.web.id/api/panens';
+      final baseUrl = 'https://ayamku.web.id/api/docs';
       final Uri url =
           _isEditMode
-              ? Uri.parse('$baseUrl/$_panenId') // URL untuk update (PUT)
+              ? Uri.parse('$baseUrl/$_docId') // URL untuk update (PUT)
               : Uri.parse(baseUrl); // URL untuk create (POST)
 
       // Siapkan data untuk dikirim sesuai format body request API
       final Map<String, dynamic> requestData = {
         'user_id': userId,
         'kandang_id': widget.kandangId,
-        'tgl_panen': tglPanenController.text,
-        'nama_pembeli': namaPembeliController.text,
-        'no_hp': noHpController.text,
-        'jml_panen': jmlPanenController.text,
-        'tonanse': tonanseController.text,
-        'berat_ayam': beratAyamController.text,
-        'harga_kg': hargaKgController.text,
+        'bobot_awal': bobotAwalController.text,
+        'populasi_awal': populasiAwalController.text,
+        'kematian': kematianController.text,
       };
 
       if (!_isEditMode) {
@@ -182,7 +125,6 @@ class _PanenFormState extends State<PanenForm> {
 
       // Buat HTTP request
       late http.Response response;
-
       if (_isEditMode) {
         // Update data yang sudah ada (PUT)
         response = await http.put(
@@ -215,8 +157,8 @@ class _PanenFormState extends State<PanenForm> {
           SnackBar(
             content: Text(
               _isEditMode
-                  ? 'Data panen berhasil diperbarui'
-                  : 'Data panen berhasil disimpan',
+                  ? 'Data DOC berhasil diperbarui'
+                  : 'Data DOC berhasil disimpan',
             ),
             backgroundColor: const Color(0xFF82985E),
           ),
@@ -254,7 +196,7 @@ class _PanenFormState extends State<PanenForm> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF82985E),
         title: Text(
-          _isEditMode ? 'Edit Data Panen' : 'Tambah Data Panen',
+          _isEditMode ? 'Edit Data DOC' : 'Tambah Data DOC',
           style: const TextStyle(color: Colors.white),
         ),
         leading: IconButton(
@@ -271,91 +213,20 @@ class _PanenFormState extends State<PanenForm> {
                 child: CircularProgressIndicator(color: Color(0xFF82985E)),
               )
               : SingleChildScrollView(
-                padding: const EdgeInsets.all(20.0),
+                padding: const EdgeInsets.all(
+                  20.0,
+                ), // Padding lebih besar untuk ruang
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      // Tanggal Panen
+                    children: [
+                      // Bobot Awal
                       TextFormField(
-                        controller: tglPanenController,
-                        decoration: InputDecoration(
-                          labelText: 'Tanggal Panen',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 12,
-                          ),
-                          suffixIcon: const Icon(
-                            Icons.calendar_today,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        readOnly: true,
-                        onTap: () => _pilihTanggal(context, tglPanenController),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Tanggal panen harus diisi';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Nama Pembeli
-                      TextFormField(
-                        controller: namaPembeliController,
-                        decoration: InputDecoration(
-                          labelText: 'Nama Pembeli',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 12,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Nama pembeli harus diisi';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // No HP
-                      TextFormField(
-                        controller: noHpController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: 'Nomor HP',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 12,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Nomor HP harus diisi';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Jumlah Panen
-                      TextFormField(
-                        controller: jmlPanenController,
+                        controller: bobotAwalController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Jumlah Panen (ekor)',
+                          labelText: 'Bobot Awal (kg)',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -366,19 +237,22 @@ class _PanenFormState extends State<PanenForm> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Jumlah panen harus diisi';
+                            return 'Bobot awal harus diisi';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Bobot awal harus berupa angka';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16.0),
 
-                      // Tonanse
+                      // Populasi Awal
                       TextFormField(
-                        controller: tonanseController,
+                        controller: populasiAwalController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Tonanse (kg)',
+                          labelText: 'Populasi Awal',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -389,19 +263,22 @@ class _PanenFormState extends State<PanenForm> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Tonanse harus diisi';
+                            return 'Populasi awal harus diisi';
+                          }
+                          if (int.tryParse(value) == null) {
+                            return 'Populasi awal harus berupa angka';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 16.0),
 
-                      // Berat Ayam
+                      // Kematian
                       TextFormField(
-                        controller: beratAyamController,
+                        controller: kematianController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Berat Ayam Rata-rata (kg)',
+                          labelText: 'Kematian',
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -412,36 +289,23 @@ class _PanenFormState extends State<PanenForm> {
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return 'Berat ayam harus diisi';
+                            return 'Jumlah kematian harus diisi';
+                          }
+                          if (int.tryParse(value) == null) {
+                            return 'Jumlah kematian harus berupa angka';
+                          }
+                          final populasi =
+                              int.tryParse(populasiAwalController.text) ?? 0;
+                          final kematian = int.tryParse(value) ?? 0;
+                          if (kematian > populasi) {
+                            return 'Kematian tidak boleh lebih besar dari populasi awal';
                           }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 16.0),
-
-                      // Harga per KG
-                      TextFormField(
-                        controller: hargaKgController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Harga per KG (Rp)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 14,
-                            horizontal: 12,
-                          ),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Harga per kg harus diisi';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 32.0),
-
+                      const SizedBox(
+                        height: 32.0,
+                      ), // Spasi lebih besar sebelum tombol
                       // Tombol Simpan
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
@@ -451,9 +315,9 @@ class _PanenFormState extends State<PanenForm> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          elevation: 2,
+                          elevation: 2, // Sedikit shadow pada tombol
                         ),
-                        onPressed: _isLoading ? null : _simpanDataPanen,
+                        onPressed: _isLoading ? null : _simpanDataDoc,
                         child:
                             _isLoading
                                 ? const SizedBox(

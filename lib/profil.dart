@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projectayam/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home.dart';
 import 'kandang.dart';
@@ -12,6 +13,7 @@ class Profil extends StatelessWidget {
   }
 
   // Fungsi logout yang menghapus session
+  // Fungsi logout yang menggunakan AuthService
   Future<void> _logout(BuildContext context) async {
     // Tampilkan indikator loading
     showDialog(
@@ -27,18 +29,8 @@ class Profil extends StatelessWidget {
     );
 
     try {
-      // Dapatkan instance SharedPreferences
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-
-      // Hapus status login
-      await prefs.setBool('isLogin', false);
-
-      // Hapus timestamp login
-      await prefs.remove('loginTimestamp');
-
-      // Opsional: Hapus data user lainnya jika ada
-      // await prefs.remove('userEmail');
-      // await prefs.remove('userName');
+      // Gunakan AuthService untuk logout
+      await AuthService.logout();
 
       // Tutup dialog loading
       Navigator.pop(context);

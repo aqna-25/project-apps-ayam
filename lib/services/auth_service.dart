@@ -10,9 +10,15 @@ class AuthService {
   static const String IS_LOGIN_KEY = 'isLogin';
   static const String EMAIL_KEY = 'email';
 
+  // Register function
   static Future<Map<String, dynamic>> register(
     String name,
     String email,
+    String noHp,
+    String tglLahir,
+    String provinsi,
+    String kota,
+    String alamat,
     String password,
     String passwordConfirmation,
   ) async {
@@ -23,6 +29,11 @@ class AuthService {
         body: jsonEncode({
           'name': name,
           'email': email,
+          'no_hp': noHp,
+          'tgl_lahir': tglLahir,
+          'provinsi': provinsi,
+          'kota': kota,
+          'alamat': alamat,
           'password': password,
           'password_confirmation': passwordConfirmation,
         }),
@@ -30,11 +41,9 @@ class AuthService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-
         if (data['token'] != null) {
           await _saveUserData(data['user'], data['token']);
         }
-
         return {'success': true, 'data': data};
       } else {
         final Map<String, dynamic> errorData = jsonDecode(response.body);
@@ -66,17 +75,14 @@ class AuthService {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
-
         if (data['token'] != null && data['user'] != null) {
           await _saveUserData(data['user'], data['token']);
-
           // Set user_id secara terpisah untuk memastikan tersimpan
           final prefs = await SharedPreferences.getInstance();
           if (data['user']['id'] != null) {
             await prefs.setInt(USER_ID_KEY, data['user']['id']);
           }
         }
-
         return {'success': true, 'data': data};
       } else {
         final Map<String, dynamic> errorData = jsonDecode(response.body);
@@ -103,7 +109,6 @@ class AuthService {
     await prefs.setString(TOKEN_KEY, token);
     await prefs.setBool(IS_LOGIN_KEY, true);
     await prefs.setString(EMAIL_KEY, userData['email'] ?? '');
-
     // Simpan user_id secara eksplisit
     if (userData['id'] != null) {
       await prefs.setInt(USER_ID_KEY, userData['id']);
@@ -124,7 +129,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final userString = prefs.getString(USER_KEY);
     if (userString != null) {
-      return jsonDecode(userString);
+      return jsonDecode(userString) as Map<String, dynamic>;
     }
     return null;
   }

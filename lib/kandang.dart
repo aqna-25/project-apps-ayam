@@ -17,8 +17,7 @@ class Kandang {
   final String kota;
   final String statusKandang;
   final String alamatKandang;
-  final int userId; // Tambahkan field untuk user ID
-
+  final int userId;
   Kandang({
     required this.id,
     required this.namaKandang,
@@ -29,9 +28,8 @@ class Kandang {
     required this.kota,
     required this.statusKandang,
     required this.alamatKandang,
-    required this.userId, // Tambahkan parameter userId
+    required this.userId,
   });
-
   factory Kandang.fromJson(Map<String, dynamic> json) {
     return Kandang(
       id: json['id'],
@@ -43,41 +41,44 @@ class Kandang {
       kota: json['kota'],
       statusKandang: json['status_kandang'],
       alamatKandang: json['alamat_kandang'] ?? '',
-      userId:
-          json['user_id'] ?? 0, // Pastikan untuk ambil user_id dari response
+      userId: json['user_id'] ?? 0,
     );
   }
 }
 
 class KandangPage extends StatefulWidget {
   const KandangPage({super.key});
-
   @override
   State<KandangPage> createState() => _KandangPageState();
 }
 
 class _KandangPageState extends State<KandangPage> {
   List<Kandang> kandangList = [];
-  List<Kandang> userKandangList = []; // List untuk menyimpan kandang milik user
+  List<Kandang> filteredKandangList = []; // Tambahkan list terfilter
   bool isLoading = true;
   String searchQuery = '';
+  TextEditingController searchController =
+      TextEditingController(); // Tambahkan controller untuk search
   String? errorMessage;
-  int? userId; // Menyimpan ID user yang sedang login
-
+  int? userId;
   @override
   void initState() {
     super.initState();
     getUserData().then((_) => fetchKandangData());
   }
 
-  // Mendapatkan data user yang sedang login
+  @override
+  void dispose() {
+    searchController.dispose(); // Tambahkan dispose untuk controller
+    super.dispose();
+  }
+
   Future<void> getUserData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       setState(() {
         userId = prefs.getInt('user_id');
       });
-
       if (userId == null) {
         print('User ID tidak ditemukan di SharedPreferences');
       } else {
@@ -93,10 +94,8 @@ class _KandangPageState extends State<KandangPage> {
       isLoading = true;
       errorMessage = null;
     });
-
     try {
       String? authToken = await getAuthToken();
-
       if (authToken == null) {
         setState(() {
           errorMessage =
@@ -105,7 +104,6 @@ class _KandangPageState extends State<KandangPage> {
         });
         return;
       }
-
       final response = await http
           .get(
             Uri.parse('https://ayamku.web.id/api/kandangs'),
@@ -122,30 +120,28 @@ class _KandangPageState extends State<KandangPage> {
               );
             },
           );
-
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['data'] != null) {
-          // Parse semua kandang dari response
           List<Kandang> allKandangs = List<Kandang>.from(
             data['data'].map((kandang) => Kandang.fromJson(kandang)),
           );
-
-          // Filter hanya kandang milik user yang sedang login
           if (userId != null) {
             setState(() {
               kandangList =
                   allKandangs
                       .where((kandang) => kandang.userId == userId)
                       .toList();
+              filteredKandangList = List.from(
+                kandangList,
+              ); // Inisialisasi list terfilter
               isLoading = false;
             });
-
             print('Jumlah kandang milik user: ${kandangList.length}');
           } else {
-            // Jika user ID null, tampilkan semua kandang (atau kosongkan list)
             setState(() {
               kandangList = [];
+              filteredKandangList = [];
               errorMessage =
                   'Tidak dapat mengidentifikasi user yang sedang login';
               isLoading = false;
@@ -154,6 +150,7 @@ class _KandangPageState extends State<KandangPage> {
         } else {
           setState(() {
             kandangList = [];
+            filteredKandangList = [];
             isLoading = false;
           });
         }
@@ -163,7 +160,6 @@ class _KandangPageState extends State<KandangPage> {
               'Sesi login Anda telah berakhir. Silakan login kembali.';
           isLoading = false;
         });
-        // Handle token expiration - redirect to login
       } else {
         throw Exception('Gagal memuat data kandang: ${response.statusCode}');
       }
@@ -186,24 +182,40 @@ class _KandangPageState extends State<KandangPage> {
     }
   }
 
-  List<Kandang> getFilteredKandangList() {
-    if (searchQuery.isEmpty) {
-      return kandangList;
-    }
-
-    return kandangList
-        .where(
-          (kandang) => kandang.namaKandang.toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          ),
-        )
-        .toList();
+  // Implementasi fungsi pencarian yang lebih baik
+  void filterKandangList(String query) {
+    setState(() {
+      searchQuery = query;
+      if (query.isEmpty) {
+        filteredKandangList = List.from(kandangList);
+      } else {
+        filteredKandangList =
+            kandangList
+                .where(
+                  (kandang) =>
+                      kandang.namaKandang.toLowerCase().contains(
+                        query.toLowerCase(),
+                      ) ||
+                      kandang.jenisKandang.toLowerCase().contains(
+                        query.toLowerCase(),
+                      ) ||
+                      kandang.kota.toLowerCase().contains(
+                        query.toLowerCase(),
+                      ) ||
+                      kandang.provinsi.toLowerCase().contains(
+                        query.toLowerCase(),
+                      ) ||
+                      kandang.statusKandang.toLowerCase().contains(
+                        query.toLowerCase(),
+                      ),
+                )
+                .toList();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredKandangList = getFilteredKandangList();
-
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -218,10 +230,21 @@ class _KandangPageState extends State<KandangPage> {
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: TextField(
+                  controller: searchController,
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
                     prefixIcon: const Icon(Icons.search),
+                    suffixIcon:
+                        searchQuery.isNotEmpty
+                            ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                searchController.clear();
+                                filterKandangList('');
+                              },
+                            )
+                            : null,
                     hintText: 'Cari Kandang',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -229,9 +252,7 @@ class _KandangPageState extends State<KandangPage> {
                     ),
                   ),
                   onChanged: (value) {
-                    setState(() {
-                      searchQuery = value;
-                    });
+                    filterKandangList(value);
                   },
                 ),
               ),
@@ -378,7 +399,6 @@ class _KandangPageState extends State<KandangPage> {
         itemBuilder: (context, index) {
           final kandang = kandangList[index];
           final bool isActive = kandang.statusKandang.toLowerCase() == 'aktif';
-
           return Card(
             margin: const EdgeInsets.only(bottom: 16),
             elevation: 4,
@@ -460,13 +480,12 @@ class _KandangPageState extends State<KandangPage> {
                               MaterialPageRoute(
                                 builder:
                                     (context) => DetailKandangPage(
-                                      kandangId: kandang.id,
+                                      kandangId: kandang.id.toString(),
                                     ),
                               ),
                             ).then((_) => fetchKandangData());
                           },
                         ),
-
                       // Show Activation button if status is not Active
                       if (!isActive)
                         TextButton.icon(
@@ -482,7 +501,6 @@ class _KandangPageState extends State<KandangPage> {
                             _showActivationConfirmation(context, kandang);
                           },
                         ),
-
                       // Delete button is always shown
                       TextButton.icon(
                         icon: const Icon(Icons.delete, color: Colors.white),
@@ -607,14 +625,11 @@ class _KandangPageState extends State<KandangPage> {
     setState(() {
       isLoading = true;
     });
-
     try {
       String? authToken = await getAuthToken();
-
       if (authToken == null) {
         throw Exception('Authentication token not found');
       }
-
       final response = await http
           .delete(
             Uri.parse('https://ayamku.web.id/api/kandangs/$kandangId'),
@@ -631,7 +646,6 @@ class _KandangPageState extends State<KandangPage> {
               );
             },
           );
-
       if (response.statusCode == 200 || response.statusCode == 204) {
         // Success, refresh the list
         fetchKandangData();

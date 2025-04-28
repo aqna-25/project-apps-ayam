@@ -1,10 +1,72 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'kandang.dart';
 import 'profil.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String userName = "...";
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    getUserData();
+  }
+
+  Future<void> getUserData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id');
+
+      if (userId == null) {
+        setState(() {
+          userName = "Guest";
+          isLoading = false;
+        });
+        return;
+      }
+
+      final response = await http.get(
+        Uri.parse('https://ayamku.web.id/api/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${prefs.getString('token') ?? ""}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        // Akses nama pengguna langsung dari data
+        setState(() {
+          userName = data['name'] ?? "Guest"; // Ambil nama dari data
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          userName = "User  ";
+          isLoading = false;
+        });
+        print('Failed to load user data: ${response.statusCode}');
+      }
+    } catch (e) {
+      setState(() {
+        userName = "User  ";
+        isLoading = false;
+      });
+      print('Error fetching user data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,10 +83,17 @@ class HomePage extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Hallo ... !",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-            ),
+            isLoading
+                ? const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF8AA653)),
+                )
+                : Text(
+                  "Hallo $userName!",
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
