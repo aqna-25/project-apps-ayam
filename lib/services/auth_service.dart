@@ -29,6 +29,7 @@ class AuthService {
         body: jsonEncode({
           'name': name,
           'email': email,
+
           'no_hp': noHp,
           'tgl_lahir': tglLahir,
           'provinsi': provinsi,

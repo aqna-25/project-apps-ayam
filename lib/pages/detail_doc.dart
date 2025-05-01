@@ -447,33 +447,11 @@ class _DetailDocState extends State<DetailDoc> {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => DocForm(kandangId: widget.kandangId),
-                ),
-              ).then((value) {
-                if (value == true) {
-                  fetchDocData();
-                }
-              });
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Tambah DOC'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF82985E),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 48),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          ),
-        ),
+        // Button will only appear if there's NO data (docList is empty)
+        // Since we're checking for docList.isEmpty above and returning early,
+        // this section will never execute if there's no data
+        // Therefore, this is already only showing when there IS data
+        // But we'll fix this by removing the button entirely
       ],
     );
   }

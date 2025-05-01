@@ -8,7 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 class DocForm extends StatefulWidget {
   final String kandangId;
   final Map<String, dynamic>? docToEdit;
-  const DocForm({super.key, required this.kandangId, this.docToEdit});
+  final bool
+  hasExistingData; // Tambahkan parameter baru untuk menandakan data sudah ada
+
+  const DocForm({
+    super.key,
+    required this.kandangId,
+    this.docToEdit,
+    this.hasExistingData = false, // Default false jika tidak diisi
+  });
 
   @override
   State<DocForm> createState() => _DocFormState();
@@ -23,7 +31,6 @@ class _DocFormState extends State<DocForm> {
   bool _isEditMode = false;
   int? _docId;
 
-  // User ID dari sistem autentikasi
   String? userId;
 
   @override
@@ -37,11 +44,9 @@ class _DocFormState extends State<DocForm> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Ambil userId sebagai integer
       final storedUserId = prefs.getInt('user_id');
 
       setState(() {
-        // Konversi dari int ke string
         userId = storedUserId?.toString();
       });
 
@@ -68,11 +73,9 @@ class _DocFormState extends State<DocForm> {
   }
 
   void _initializeData() {
-    // Periksa apakah dalam mode edit
     if (widget.docToEdit != null) {
       _isEditMode = true;
       _docId = widget.docToEdit!['id'];
-      // Isi form dengan data yang sudah ada
       bobotAwalController.text =
           widget.docToEdit!['bobot_Awal']?.toString() ?? '';
       populasiAwalController.text =
@@ -104,15 +107,12 @@ class _DocFormState extends State<DocForm> {
     try {
       final baseUrl = 'https://ayamku.web.id/api/docs';
       final Uri url =
-          _isEditMode
-              ? Uri.parse('$baseUrl/$_docId') // URL untuk update (PUT)
-              : Uri.parse(baseUrl); // URL untuk create (POST)
+          _isEditMode ? Uri.parse('$baseUrl/$_docId') : Uri.parse(baseUrl);
 
-      // Siapkan data untuk dikirim sesuai format body request API
       final Map<String, dynamic> requestData = {
         'user_id': userId,
         'kandang_id': widget.kandangId,
-        'bobot_awal': bobotAwalController.text,
+        'bobot_Awal': bobotAwalController.text,
         'populasi_awal': populasiAwalController.text,
         'kematian': kematianController.text,
       };
@@ -192,6 +192,68 @@ class _DocFormState extends State<DocForm> {
 
   @override
   Widget build(BuildContext context) {
+    // Jika ada data yang sudah ada dan kita tidak dalam mode edit, tampilkan pesan
+    if (widget.hasExistingData && !_isEditMode) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF82985E),
+          title: const Text('Data DOC', style: TextStyle(color: Colors.white)),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () {
+              Navigator.pop(context);
+            },
+          ),
+          elevation: 1,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.info_outline,
+                size: 80,
+                color: Color(0xFF82985E),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Data DOC sudah ada',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  'Anda hanya dapat mengedit data DOC yang sudah ada. Silakan kembali ke halaman sebelumnya.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF82985E),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: const Text('Kembali'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Tampilkan form seperti biasa jika tidak ada data atau sedang dalam mode edit
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF82985E),
